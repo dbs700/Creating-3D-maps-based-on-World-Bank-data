@@ -1,0 +1,95 @@
+---
+title: "Creating 3D maps based on World Development Indicators by World Bank"
+author: "by Dmitry Storozhenko"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    code_folding: hide
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Intro
+
+
+The World Bank makes available a ton of great data from the World Development Indicators through its web API. The WDI package for R makes it easy to search and download data series from the WDI. It is published on CRAN and so can be installed by simply typing this in the R console:
+
+install.packages('WDI')
+
+You can search for data by using keywords in WDIsearch. For instance, if you are looking for data on Gross Domestic Product per Capita:
+
+```{r warning=FALSE,message=FALSE}
+library(tidyverse)
+library(WDI)
+
+metric <- WDI(indicator = c("NY.GDP.PCAP.CD"), start = 2017, end = 2017, extra = TRUE) %>% tbl_df()
+
+metric
+```
+
+Looks good, but we need to change some columns name along with country names, to make it clear for Echart.
+
+### Preparing Echart graph
+
+
+ECharts is a free, powerful charting and visualization library offering an easy way of adding intuitive, interactive, and highly customizable charts to your commercial products. It is written in pure JavaScript and based on zrender, which is a whole new lightweight canvas library. Now ECharts is an incubator project of Apache Software Foundation. Thanks to John Coene for adapting this tool for R.
+
+So at first, we need to change the GDP variable name to more friendl,and  also round our numbers a little bit.Then we could create graph while filtering by year, excluding NAs and rename some of variables with fct_recode function:
+```{r warning=FALSE,message=FALSE}
+library(echarts4r)
+
+names(metric)[names(metric) == 'NY.GDP.PCAP.CD'] <- 'GDP'
+
+metric$GDP<-round(metric$GDP,digits=2)
+```
+
+```{r warning=FALSE,message=FALSE}
+#perfect
+m<-metric %>% 
+  arrange(desc(`GDP`)) %>%
+  filter(year == 2017,
+         !is.na(`GDP`))%>%
+  mutate(country = fct_recode(country,
+                              "Czech Rep." = "Czech Republic",
+                              "Russia" = "Russian Federation",
+                              'Iran' = 'Iran, Islamic Rep.',
+                              'Egypt' = 'Egypt, Arab Rep.')) %>%
+  e_charts(country) %>% 
+  e_map_3d(`GDP`, shading = "lambert") %>% 
+  e_visual_map(`GDP`) %>%
+  e_title("GDP per capita (current US$) 2017", "Data: World Bank, World Development Indicators")%>%
+  e_tooltip(
+    trigger = "item",
+    formatter = htmlwidgets::JS(
+      'function(params, ticket, callback) {
+        var fmt = new Intl.NumberFormat("eng", {"style":"decimal"});
+        return params.name + "<br>" +
+               params.marker + " " +
+               params.seriesName + ": " + fmt.format(parseFloat(params.value));
+    }'
+    )
+  )
+
+```
+
+### Result
+
+
+And here is the output! First result in Google tells us that GDP per capita is a measure of a country's economic output that accounts for its number of people. It divides the country's gross domestic product by its total population. That makes it the best measurement of a country's standard of living. It tells you how prosperous a country feels to each of its citizens.
+
+```{r warning=FALSE,message=FALSE}
+m
+```
+
+The graph is fully interactive, you can zoom it, rotate and change the scale:-) Also, we could add different themes, lines, and indicators as well. If you bored with standard maps you could give it a try! 
+
+
+
+
+
+
+[Back to Github page](https://github.com/dbs700/) | [See also: Youtube analysis](https://dbs700.github.io/Youtube-analysis/2.html)
+
